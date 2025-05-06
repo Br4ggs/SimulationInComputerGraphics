@@ -5,8 +5,12 @@
 #include "SpringForce.h"
 #include "RodConstraint.h"
 #include "CircularWireConstraint.h"
+#include "GeneralizedForce.h" // Include the generalized force structure
+#include "GeneralizedConstraint.h" // Include the generalized constraint structur
+#include "GravityForce.h" // Include the GravityForce header
 #include "imageio.h"
 
+#include <memory> // For std::make_shared
 #include <vector>
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,6 +32,12 @@ static int frame_number;
 // static Particle *pList;
 static std::vector<Particle*> pVector;
 
+// Generalized Force System
+static GeneralizedForce forceSystem; // Create an instance of the generalized force system
+
+// Generalized constraints system
+static GeneralizedConstraint constraintSystem; // Create an instance of the generalized constraint system
+
 static int win_id;
 static int win_x, win_y;
 static int mouse_down[3];
@@ -35,11 +45,6 @@ static int mouse_release[3];
 static int mouse_shiftclick[3];
 static int omx, omy, mx, my;
 static int hmx, hmy;
-
-static SpringForce * delete_this_dummy_spring = NULL;
-static RodConstraint * delete_this_dummy_rod = NULL;
-static CircularWireConstraint * delete_this_dummy_wire = NULL;
-
 
 /*
 ----------------------------------------------------------------------
@@ -50,18 +55,8 @@ free/clear/allocate simulation data
 static void free_data ( void )
 {
 	pVector.clear();
-	if (delete_this_dummy_rod) {
-		delete delete_this_dummy_rod;
-		delete_this_dummy_rod = NULL;
-	}
-	if (delete_this_dummy_spring) {
-		delete delete_this_dummy_spring;
-		delete_this_dummy_spring = NULL;
-	}
-	if (delete_this_dummy_wire) {
-		delete delete_this_dummy_wire;
-		delete_this_dummy_wire = NULL;
-	}
+	forceSystem.clearForces(); // Clear the forces in the generalized force system
+	constraintSystem.clearConstraints(); // Clear the constraints in the generalized constraint system
 }
 
 static void clear_data ( void )
@@ -86,11 +81,14 @@ static void init_system(void)
 	pVector.push_back(new Particle(center + offset + offset));
 	pVector.push_back(new Particle(center + offset + offset + offset));
 	
-	// You shoud replace these with a vector generalized forces and one of
-	// constraints...
-	delete_this_dummy_spring = new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0);
-	delete_this_dummy_rod = new RodConstraint(pVector[1], pVector[2], dist);
-	delete_this_dummy_wire = new CircularWireConstraint(pVector[0], center, dist);
+	// Vector of generalized forces 
+	forceSystem.addForce(std::make_shared<GravityForce>(Vec2f(0.0, -9.81))); // Add gravity force to the system
+	// forceSystem.addForce(std::make_shared<SpringForce>(pVector[0], pVector[1], dist, 1.0, 1.0)); // Add spring force to the first particle
+	
+	// Vector of generalized constraints
+	// constraintSystem.addConstraint(std::make_shared<RodConstraint>(pVector[1], pVector[2], dist)); // Add rod constraint between the second and third particles
+	// constraintSystem.addConstraint(std::make_shared<CircularWireConstraint>(pVector[0], center, dist)); // Add circular wire constraint to the first particle
+	
 }
 
 /*
@@ -147,18 +145,14 @@ static void draw_particles ( void )
 
 static void draw_forces ( void )
 {
-	// change this to iteration over full set
-	if (delete_this_dummy_spring)
-		delete_this_dummy_spring->draw();
+	// Draw all the forces in the generalized force system
+	forceSystem.drawForces();
 }
 
 static void draw_constraints ( void )
 {
-	// change this to iteration over full set
-	if (delete_this_dummy_rod)
-		delete_this_dummy_rod->draw();
-	if (delete_this_dummy_wire)
-		delete_this_dummy_wire->draw();
+	// Draw all the constraints in the generalized force system
+	constraintSystem.drawConstraints();
 }
 
 /*
