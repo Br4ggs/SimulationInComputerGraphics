@@ -1,6 +1,6 @@
 // ParticleToy.cpp : Defines the entry point for the console application.
 //
-
+#include "System.h"
 #include "Particle.h"
 #include "SpringForce.h"
 #include "RodConstraint.h"
@@ -27,6 +27,58 @@ static int frame_number;
 
 // static Particle *pList;
 static std::vector<Particle*> pVector;
+//TODO: forces
+//TODO: constraints
+
+
+int get_dim()
+{
+	//our system is 2D
+	return 4 * pVector.size();
+}
+
+std::vector<float> get_state()
+{
+	std::vector<float> sVector;
+
+	for (int i = 0; i < pVector.size(); i++)
+	{
+		sVector.push_back(pVector[i]->m_Position[0]); //x position
+		sVector.push_back(pVector[i]->m_Position[1]); //y position
+		sVector.push_back(pVector[i]->m_Velocity[0]); //x velocity
+		sVector.push_back(pVector[i]->m_Velocity[1]); //y velocity
+	}
+
+	return sVector;
+}
+
+void set_state(std::vector<float> sVector)
+{
+	//TODO: check for size mismatch between pVector and sVector: sVector.size == pVector.size * 4
+
+	for (int i = 0; i < pVector.size(); i++)
+	{
+		int ii = i * 4;
+		pVector[i]->m_Position[0] = sVector[ii];     //x position
+		pVector[i]->m_Position[1] = sVector[ii + 1]; //y position
+		pVector[i]->m_Velocity[0] = sVector[ii + 2]; //x velocity
+		pVector[i]->m_Velocity[1] = sVector[ii + 3]; //y velocity
+	}
+}
+
+std::vector<float> deriv_eval()
+{
+	std::vector<float> dVector;
+	for (int i = 0; i < pVector.size(); i++)
+	{
+		dVector.push_back(pVector[i]->m_Velocity[0]); //dx/dt 1st derivative
+		dVector.push_back(pVector[i]->m_Velocity[1]); //dy/dt
+		dVector.push_back(pVector[i]->m_Force[0] / pVector[i]->f_Mass); //dv/dt (x)
+		dVector.push_back(pVector[i]->m_Force[1] / pVector[i]->f_Mass); //dv/dt (y)
+	}
+
+	return dVector;
+}
 
 static int win_id;
 static int win_x, win_y;
@@ -72,6 +124,10 @@ static void clear_data ( void )
 		pVector[ii]->reset();
 	}
 }
+
+//TODO:
+//1. add gravity as a force class
+//2. add spring force as a force class
 
 static void init_system(void)
 {
@@ -268,7 +324,7 @@ static void reshape_func ( int width, int height )
 
 static void idle_func ( void )
 {
-	if ( dsim ) simulation_step( pVector, dt );
+	if ( dsim ) simulation_step( pVector, dt ); //TODO: call your solver of choice here
 	else        {get_from_UI();remap_GUI();}
 
 	glutSetWindow ( win_id );
