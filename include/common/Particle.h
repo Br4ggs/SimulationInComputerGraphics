@@ -12,7 +12,9 @@ public:
 	void reset();
 	void draw();
 
-	Vec2f m_ConstructPos;
+	Vec2f m_ConstructPos; //m_?
 	Vec2f m_Position;
 	Vec2f m_Velocity;
+	Vec2f m_Force;
+	float f_Mass;
 };
