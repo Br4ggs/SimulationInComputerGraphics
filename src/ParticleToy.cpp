@@ -1,6 +1,7 @@
 // ParticleToy.cpp : Defines the entry point for the console application.
 //
 #include "System.h"
+#include "ExplicitEulerSolver.h"
 #include "Force.h"
 #include "GravityForce.h"
 #include "Particle.h"
@@ -92,7 +93,7 @@ static void clear_force_accumulators()
 {
     for (int i = 0; i < pVector.size(); i++)
     {
-        pVector[i]->m_Force *= 0;
+        pVector[i]->m_Force = Vec2f(0.0, 0.0);
     }
 }
 
@@ -358,9 +359,14 @@ static void idle_func ( void )
         //2. apply forces to particle accumulators
         apply_force_accumulators();
         //3. call solver 
-        simulation_step( pVector, dt ); //TODO: call your solver of choice here
+        explicit_euler_solve(dt);
+        //simulation_step( pVector, dt ); //TODO: call your solver of choice here
     }
-	else        {get_from_UI();remap_GUI();}
+	else
+    {
+        get_from_UI();
+        remap_GUI();
+    }
 
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
@@ -424,7 +430,8 @@ int main ( int argc, char ** argv )
 
 	if ( argc == 1 ) {
 		N = 64;
-		dt = 0.1f;
+		//dt = 0.1f;
+        dt = 0.01f;
 		d = 5.f;
 		fprintf ( stderr, "Using defaults : N=%d dt=%g d=%g\n",
 			N, dt, d );
