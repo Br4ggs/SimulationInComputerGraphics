@@ -289,6 +289,10 @@ static void remap_GUI()
 	{
 		pVector[ii]->m_Position[0] = pVector[ii]->m_ConstructPos[0];
 		pVector[ii]->m_Position[1] = pVector[ii]->m_ConstructPos[1];
+
+        //added to prevent particles shooting off to neptune after pressing space a couple of times
+        pVector[ii]->m_Velocity[0] = 0.0;
+		pVector[ii]->m_Velocity[1] = 0.0;
 	}
 }
 
