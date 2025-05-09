@@ -1,6 +1,8 @@
 // ParticleToy.cpp : Defines the entry point for the console application.
 //
 #include "System.h"
+#include "Force.h"
+#include "GravityForce.h"
 #include "Particle.h"
 #include "SpringForce.h"
 #include "RodConstraint.h"
@@ -26,10 +28,14 @@ static int dump_frames;
 static int frame_number;
 
 // static Particle *pList;
-static std::vector<Particle*> pVector;
-//TODO: forces
-//TODO: constraints
+static std::vector<Particle*> pVector; // Vector of particles
+static std::vector<Force*> fVector; // Vector of forces
 
+//TODO: constraints
+// Vector of constraints
+
+
+// System interface
 
 int get_dim()
 {
@@ -73,11 +79,29 @@ std::vector<float> deriv_eval()
 	{
 		dVector.push_back(pVector[i]->m_Velocity[0]); //dx/dt 1st derivative
 		dVector.push_back(pVector[i]->m_Velocity[1]); //dy/dt
-		dVector.push_back(pVector[i]->m_Force[0] / pVector[i]->f_Mass); //dv/dt (x)
+		dVector.push_back(pVector[i]->m_Force[0] / pVector[i]->f_Mass); //dv/dt (x) 2nd derivative
 		dVector.push_back(pVector[i]->m_Force[1] / pVector[i]->f_Mass); //dv/dt (y)
 	}
 
 	return dVector;
+}
+
+// System helper functions
+
+static void clear_force_accumulators()
+{
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        pVector[i]->m_Force *= 0;
+    }
+}
+
+static void apply_force_accumulators()
+{
+    for (int i = 0; i < fVector.size(); i++)
+    {
+        fVector[i]->apply_force();
+    }
 }
 
 static int win_id;
@@ -141,6 +165,9 @@ static void init_system(void)
 	pVector.push_back(new Particle(center + offset));
 	pVector.push_back(new Particle(center + offset + offset));
 	pVector.push_back(new Particle(center + offset + offset + offset));
+
+	// Forces
+	fVector.push_back(new GravityForce(pVector, Vec2f(0, -1)));
 	
 	// You shoud replace these with a vector generalized forces and one of
 	// constraints...
@@ -324,7 +351,15 @@ static void reshape_func ( int width, int height )
 
 static void idle_func ( void )
 {
-	if ( dsim ) simulation_step( pVector, dt ); //TODO: call your solver of choice here
+	if (dsim)
+    {
+        //1. clear all force accumulators in particles
+        clear_force_accumulators();
+        //2. apply forces to particle accumulators
+        apply_force_accumulators();
+        //3. call solver 
+        simulation_step( pVector, dt ); //TODO: call your solver of choice here
+    }
 	else        {get_from_UI();remap_GUI();}
 
 	glutSetWindow ( win_id );
