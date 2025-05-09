@@ -10,6 +10,8 @@ class GravityForce : public Force
 public:
     GravityForce(std::vector<Particle*> pVector, Vec2f gravitational_acceleration);
 
+    void draw() override;
+
     void apply_force() override;
 
 private:

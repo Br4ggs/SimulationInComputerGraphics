@@ -6,6 +6,11 @@ GravityForce::GravityForce(std::vector<Particle*> pVector, Vec2f gravitational_a
     :pVector(pVector), gravitational_acceleration(gravitational_acceleration)
 {}
 
+void GravityForce::draw()
+{
+    //does nothing
+}
+
 void GravityForce::apply_force()
 {
     // Force = mass * gravitation constant

@@ -113,7 +113,7 @@ static int mouse_shiftclick[3];
 static int omx, omy, mx, my;
 static int hmx, hmy;
 
-static SpringForce * delete_this_dummy_spring = NULL;
+//static SpringForce * delete_this_dummy_spring = NULL;
 static RodConstraint * delete_this_dummy_rod = NULL;
 static CircularWireConstraint * delete_this_dummy_wire = NULL;
 
@@ -124,6 +124,7 @@ free/clear/allocate simulation data
 ----------------------------------------------------------------------
 */
 
+// TODO: Update later
 static void free_data ( void )
 {
 	pVector.clear();
@@ -131,10 +132,10 @@ static void free_data ( void )
 		delete delete_this_dummy_rod;
 		delete_this_dummy_rod = NULL;
 	}
-	if (delete_this_dummy_spring) {
-		delete delete_this_dummy_spring;
-		delete_this_dummy_spring = NULL;
-	}
+	// if (delete_this_dummy_spring) {
+	// 	delete delete_this_dummy_spring;
+	// 	delete_this_dummy_spring = NULL;
+	//}
 	if (delete_this_dummy_wire) {
 		delete delete_this_dummy_wire;
 		delete_this_dummy_wire = NULL;
@@ -169,10 +170,12 @@ static void init_system(void)
 
 	// Forces
 	fVector.push_back(new GravityForce(pVector, Vec2f(0, -1)));
+    fVector.push_back(new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0));
+    
 	
 	// You shoud replace these with a vector generalized forces and one of
 	// constraints...
-	delete_this_dummy_spring = new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0);
+	//delete_this_dummy_spring = new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0);
 	delete_this_dummy_rod = new RodConstraint(pVector[1], pVector[2], dist);
 	delete_this_dummy_wire = new CircularWireConstraint(pVector[0], center, dist);
 }
@@ -231,9 +234,13 @@ static void draw_particles ( void )
 
 static void draw_forces ( void )
 {
+    for (int i = 0; i < fVector.size() ; i++)
+    {
+        fVector[i]->draw();
+    }
 	// change this to iteration over full set
-	if (delete_this_dummy_spring)
-		delete_this_dummy_spring->draw();
+	// if (delete_this_dummy_spring)
+	// 	delete_this_dummy_spring->draw();
 }
 
 static void draw_constraints ( void )
