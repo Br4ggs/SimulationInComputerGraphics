@@ -1,6 +1,9 @@
 // ParticleToy.cpp : Defines the entry point for the console application.
 //
-
+#include "System.h"
+#include "ExplicitEulerSolver.h"
+#include "Force.h"
+#include "GravityForce.h"
 #include "Particle.h"
 #include "SpringForce.h"
 #include "RodConstraint.h"
@@ -26,7 +29,81 @@ static int dump_frames;
 static int frame_number;
 
 // static Particle *pList;
-static std::vector<Particle*> pVector;
+static std::vector<Particle*> pVector; // Vector of particles
+static std::vector<Force*> fVector; // Vector of forces
+
+//TODO: constraints
+// Vector of constraints
+
+
+// System interface
+
+int get_dim()
+{
+	//our system is 2D
+	return 4 * pVector.size();
+}
+
+std::vector<float> get_state()
+{
+	std::vector<float> sVector;
+
+	for (int i = 0; i < pVector.size(); i++)
+	{
+		sVector.push_back(pVector[i]->m_Position[0]); //x position
+		sVector.push_back(pVector[i]->m_Position[1]); //y position
+		sVector.push_back(pVector[i]->m_Velocity[0]); //x velocity
+		sVector.push_back(pVector[i]->m_Velocity[1]); //y velocity
+	}
+
+	return sVector;
+}
+
+void set_state(std::vector<float> sVector)
+{
+	//TODO: check for size mismatch between pVector and sVector: sVector.size == pVector.size * 4
+
+	for (int i = 0; i < pVector.size(); i++)
+	{
+		int ii = i * 4;
+		pVector[i]->m_Position[0] = sVector[ii];     //x position
+		pVector[i]->m_Position[1] = sVector[ii + 1]; //y position
+		pVector[i]->m_Velocity[0] = sVector[ii + 2]; //x velocity
+		pVector[i]->m_Velocity[1] = sVector[ii + 3]; //y velocity
+	}
+}
+
+std::vector<float> deriv_eval()
+{
+	std::vector<float> dVector;
+	for (int i = 0; i < pVector.size(); i++)
+	{
+		dVector.push_back(pVector[i]->m_Velocity[0]); //dx/dt 1st derivative
+		dVector.push_back(pVector[i]->m_Velocity[1]); //dy/dt
+		dVector.push_back(pVector[i]->m_Force[0] / pVector[i]->f_Mass); //dv/dt (x) 2nd derivative
+		dVector.push_back(pVector[i]->m_Force[1] / pVector[i]->f_Mass); //dv/dt (y)
+	}
+
+	return dVector;
+}
+
+// System helper functions
+
+static void clear_force_accumulators()
+{
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        pVector[i]->m_Force = Vec2f(0.0, 0.0);
+    }
+}
+
+static void apply_force_accumulators()
+{
+    for (int i = 0; i < fVector.size(); i++)
+    {
+        fVector[i]->apply_force();
+    }
+}
 
 static int win_id;
 static int win_x, win_y;
@@ -36,7 +113,7 @@ static int mouse_shiftclick[3];
 static int omx, omy, mx, my;
 static int hmx, hmy;
 
-static SpringForce * delete_this_dummy_spring = NULL;
+//static SpringForce * delete_this_dummy_spring = NULL;
 static RodConstraint * delete_this_dummy_rod = NULL;
 static CircularWireConstraint * delete_this_dummy_wire = NULL;
 
@@ -47,6 +124,7 @@ free/clear/allocate simulation data
 ----------------------------------------------------------------------
 */
 
+// TODO: Update later
 static void free_data ( void )
 {
 	pVector.clear();
@@ -54,10 +132,10 @@ static void free_data ( void )
 		delete delete_this_dummy_rod;
 		delete_this_dummy_rod = NULL;
 	}
-	if (delete_this_dummy_spring) {
-		delete delete_this_dummy_spring;
-		delete_this_dummy_spring = NULL;
-	}
+	// if (delete_this_dummy_spring) {
+	// 	delete delete_this_dummy_spring;
+	// 	delete_this_dummy_spring = NULL;
+	//}
 	if (delete_this_dummy_wire) {
 		delete delete_this_dummy_wire;
 		delete_this_dummy_wire = NULL;
@@ -73,6 +151,10 @@ static void clear_data ( void )
 	}
 }
 
+//TODO:
+//1. add gravity as a force class
+//2. add spring force as a force class
+
 static void init_system(void)
 {
 	const double dist = 0.2;
@@ -85,10 +167,15 @@ static void init_system(void)
 	pVector.push_back(new Particle(center + offset));
 	pVector.push_back(new Particle(center + offset + offset));
 	pVector.push_back(new Particle(center + offset + offset + offset));
+
+	// Forces
+	fVector.push_back(new GravityForce(pVector, Vec2f(0, -1)));
+    fVector.push_back(new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0));
+    
 	
 	// You shoud replace these with a vector generalized forces and one of
 	// constraints...
-	delete_this_dummy_spring = new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0);
+	//delete_this_dummy_spring = new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0);
 	delete_this_dummy_rod = new RodConstraint(pVector[1], pVector[2], dist);
 	delete_this_dummy_wire = new CircularWireConstraint(pVector[0], center, dist);
 }
@@ -147,9 +234,13 @@ static void draw_particles ( void )
 
 static void draw_forces ( void )
 {
+    for (int i = 0; i < fVector.size() ; i++)
+    {
+        fVector[i]->draw();
+    }
 	// change this to iteration over full set
-	if (delete_this_dummy_spring)
-		delete_this_dummy_spring->draw();
+	// if (delete_this_dummy_spring)
+	// 	delete_this_dummy_spring->draw();
 }
 
 static void draw_constraints ( void )
@@ -205,6 +296,10 @@ static void remap_GUI()
 	{
 		pVector[ii]->m_Position[0] = pVector[ii]->m_ConstructPos[0];
 		pVector[ii]->m_Position[1] = pVector[ii]->m_ConstructPos[1];
+
+        //added to prevent particles shooting off to neptune after pressing space a couple of times
+        pVector[ii]->m_Velocity[0] = 0.0;
+		pVector[ii]->m_Velocity[1] = 0.0;
 	}
 }
 
@@ -268,8 +363,21 @@ static void reshape_func ( int width, int height )
 
 static void idle_func ( void )
 {
-	if ( dsim ) simulation_step( pVector, dt );
-	else        {get_from_UI();remap_GUI();}
+	if (dsim)
+    {
+        //1. clear all force accumulators in particles
+        clear_force_accumulators();
+        //2. apply forces to particle accumulators
+        apply_force_accumulators();
+        //3. call solver 
+        explicit_euler_solve(dt);
+        //simulation_step( pVector, dt ); //TODO: call your solver of choice here
+    }
+	else
+    {
+        get_from_UI();
+        remap_GUI();
+    }
 
 	glutSetWindow ( win_id );
 	glutPostRedisplay ();
@@ -333,7 +441,8 @@ int main ( int argc, char ** argv )
 
 	if ( argc == 1 ) {
 		N = 64;
-		dt = 0.1f;
+		//dt = 0.1f;
+        dt = 0.01f;
 		d = 5.f;
 		fprintf ( stderr, "Using defaults : N=%d dt=%g d=%g\n",
 			N, dt, d );
