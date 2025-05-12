@@ -2,6 +2,7 @@
 //
 #include "System.h"
 #include "ExplicitEulerSolver.h"
+#include "MidPointSolver.h"
 #include "Force.h"
 #include "GravityForce.h"
 #include "Particle.h"
@@ -370,7 +371,8 @@ static void idle_func ( void )
         //2. apply forces to particle accumulators
         apply_force_accumulators();
         //3. call solver 
-        explicit_euler_solve(dt);
+        //explicit_euler_solver(dt);
+		mid_point_solver(dt);
         //simulation_step( pVector, dt ); //TODO: call your solver of choice here
     }
 	else
