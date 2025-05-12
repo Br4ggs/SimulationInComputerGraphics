@@ -2,6 +2,7 @@
 //
 #include "System.h"
 #include "ExplicitEulerSolver.h"
+#include "MidPointSolver.h"
 #include "Force.h"
 #include "GravityForce.h"
 #include "Particle.h"
