@@ -3,6 +3,7 @@
 #include "System.h"
 #include "ExplicitEulerSolver.h"
 #include "MidPointSolver.h"
+#include "RungeKutta4Solver.h"
 #include "Force.h"
 #include "GravityForce.h"
 #include "Particle.h"
@@ -594,7 +595,7 @@ static void idle_func ( void )
         }
 
         //3. call solver 
-        explicit_euler_solve(dt);
+        explicit_euler_solver(dt);
 
         //4. add some dragg
         apply_drag();
