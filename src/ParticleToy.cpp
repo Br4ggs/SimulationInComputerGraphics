@@ -3,6 +3,7 @@
 #include "System.h"
 #include "ExplicitEulerSolver.h"
 #include "MidPointSolver.h"
+#include "RungeKutta4Solver.h"
 #include "Force.h"
 #include "GravityForce.h"
 #include "Particle.h"
@@ -372,7 +373,8 @@ static void idle_func ( void )
         apply_force_accumulators();
         //3. call solver 
         //explicit_euler_solver(dt);
-		mid_point_solver(dt);
+		//mid_point_solver(dt);
+		runge_kutta_4_solver(dt);
         //simulation_step( pVector, dt ); //TODO: call your solver of choice here
     }
 	else
