@@ -1,5 +1,9 @@
 #include "RodConstraint.h"
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
 #include <GL/glut.h>
+#endif
 #include <math.h>
 
 RodConstraint::RodConstraint(Particle *p1, Particle * p2, double dist, unsigned int index) :

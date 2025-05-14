@@ -17,7 +17,11 @@
 #include <vector>
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
 #include <GL/glut.h>
+#endif
 
 /* macros */
 
@@ -479,6 +483,22 @@ static void key_func ( unsigned char key, int x, int y )
 	}
 }
 
+Vec2f normalize_mouse_coordinates(int x, int y)
+{
+	float edges = 1.0;
+    auto nx = std::min(std::max(x, 0), 512);
+    auto ny = std::min(std::max(y, 0), 512);
+    
+    float normalized_x = (float)nx / 512.0f;
+    float normalized_y = (float)ny / 512.0f;
+    
+    float mapped_x = -edges + normalized_x * (2 * edges);
+    float mapped_y = edges - normalized_y * (2 * edges);
+    
+    return Vec2f(mapped_x, mapped_y);
+}
+
+// This is a GLUT mouse callback that gets triggered when the user presses or releases a mouse button.
 static void mouse_func ( int button, int state, int x, int y )
 {
 	omx = mx = x;
@@ -494,7 +514,7 @@ static void mouse_func ( int button, int state, int x, int y )
 		hmx=x; hmy=y;
 
 		// Find the closest particle to the current mouse position within a certain distance
-		float min_dist = 1.0f;
+		float min_dist = 12491.0f;
 		for (Particle* p : pVector)
 		{
 			float dist = std::sqrt(std::pow(p->m_Position[0] - hmx, 2) + std::pow(p->m_Position[1] - hmy, 2));
@@ -504,13 +524,18 @@ static void mouse_func ( int button, int state, int x, int y )
 				selected_particle = p; // store the selected particle
 			}
 		}
+
 		if(selected_particle)
 		{
+
 			const double rest_length = 0.2; // rest length of the spring
-			mouseParticle.m_Position = Vec2f(hmx, hmy);
+			mouseParticle.m_Position = normalize_mouse_coordinates(hmx, hmy);
+
+
+			std::cout<< "mouse_func" << mouseParticle.m_Position << std::endl;
 
 			// Create a spring force between the selected particle and the mouse
-			static auto mouseSpringForce = new SpringForce(selected_particle, mouseParticle, rest_length, 1.0, 1.0)
+			static auto mouseSpringForce = new SpringForce(selected_particle, &mouseParticle, rest_length, 1.0, 1.0);
 			fVector.push_back(mouseSpringForce);
 			indexSpringForce = fVector.size() - 1;
 		}
@@ -547,7 +572,8 @@ static void motion_func ( int x, int y )
 	if (selected_particle)
 	{
 		// only update the position of the mous particle
-		mouseParticle.m_Position = Vec2f(mx, my);
+		mouseParticle.m_Position = normalize_mouse_coordinates(mx, my);
+		std::cout<< "motion_func" << mouseParticle.m_Position[0] << "," << mouseParticle.m_Position[1] << std::endl;
 	}
 }
 
@@ -756,4 +782,3 @@ int main ( int argc, char ** argv )
 
 	exit ( 0 );
 }
-
