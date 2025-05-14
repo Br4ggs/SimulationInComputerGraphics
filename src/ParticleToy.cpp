@@ -360,6 +360,8 @@ Vec2f normalize_mouse_coordinates(int x, int y)
     return Vec2f(mapped_x, mapped_y);
 }
 
+static SpringForce* mouseSpringForce;
+
 // This is a GLUT mouse callback that gets triggered when the user presses or releases a mouse button.
 static void mouse_func ( int button, int state, int x, int y )
 	// button is the mouse button that was pressed or released: left, middle or right
@@ -378,40 +380,36 @@ static void mouse_func ( int button, int state, int x, int y )
 	{
 		// Store the current mouse position as the starting point of a drag
 		hmx=x; hmy=y;
+		Vec2f mousco = normalize_mouse_coordinates(x, y);
 
 		// Find the closest particle to the current mouse position within a certain distance
-		float min_dist = 12491.0f;
+		float min_dist = 102401240124.0f;
 		for (Particle* p : pVector)
 		{
-			float dist = std::sqrt(std::pow(p->m_Position[0] - hmx, 2) + std::pow(p->m_Position[1] - hmy, 2));
+			float dist = norm2(p->m_Position - Vec2f(mousco));
 			if (dist < min_dist)
 			{
+
 				min_dist = dist; // update the minimum distance
 				selected_particle = p; // store the selected particle
 			}
+
 		}
 
 		if(selected_particle)
 		{
-
 			const double rest_length = 0.2; // rest length of the spring
-			mouseParticle.m_Position = normalize_mouse_coordinates(hmx, hmy);
+			mouseParticle.m_Position = mousco;
 
 
 			std::cout<< "mouse_func" << mouseParticle.m_Position << std::endl;
 
 			// Create a spring force between the selected particle and the mouse
-			static auto mouseSpringForce = new SpringForce(selected_particle, &mouseParticle, rest_length, 1.0, 1.0);
+			mouseSpringForce = new SpringForce(selected_particle, &mouseParticle, rest_length, 1.0, 1.0);
+			// NOTE: memory leak when creating spring forces each time
 			fVector.push_back(mouseSpringForce);
 			indexSpringForce = fVector.size() - 1;
 		}
-	}
-
-	// If the left mouse button was previously pressed and if it is now released, update that it was released
-	if(mouse_down[button])
-	{
-		mouse_release[button] = (state == GLUT_UP);
-		selected_particle = nullptr; // update the selected_particle, empty it!
 	}
 
 	// If the button was previously pressed and if it is now released, update that it was released
