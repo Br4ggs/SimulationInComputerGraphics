@@ -29,6 +29,7 @@ static float dt, d;
 static int dsim;
 static int dump_frames;
 static int frame_number;
+static Particle* selected_particle = nullptr; // Pointer to the selected particle
 
 // static Particle *pList;
 static std::vector<Particle*> pVector; // Vector of particles
@@ -109,11 +110,12 @@ static void apply_force_accumulators()
 
 static int win_id;
 static int win_x, win_y;
-static int mouse_down[3];
+static int mouse_down[3]; // array of mouse buttons: left, middle and right
 static int mouse_release[3];
 static int mouse_shiftclick[3];
-static int omx, omy, mx, my;
-static int hmx, hmy;
+static int omx, omy; // the previous mouse coordinates before update
+static int mx, my; // the current mouse coordinates when the mouse is moved and a button is pressed
+static int hmx, hmy; // the starting point of a mouse drag (typically when the mouse button was first pressed)
 
 //static SpringForce * delete_this_dummy_spring = NULL;
 static RodConstraint * delete_this_dummy_rod = NULL;
@@ -159,7 +161,8 @@ static void clear_data ( void )
 
 static void init_system(void)
 {
-	const double dist = 0.2;
+	const double dist = 0.2; 	
+	const double rest_length = 0.2; // rest length of the spring
 	const Vec2f center(0.0, 0.0);
 	const Vec2f offset(dist, 0.0);
 
@@ -172,7 +175,7 @@ static void init_system(void)
 
 	// Forces
 	fVector.push_back(new GravityForce(pVector, Vec2f(0, -1)));
-    fVector.push_back(new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0));
+    fVector.push_back(new SpringForce(pVector[0], pVector[1], rest_length, 1.0, 1.0));
     
 	
 	// You shoud replace these with a vector generalized forces and one of
@@ -337,21 +340,77 @@ static void key_func ( unsigned char key, int x, int y )
 	}
 }
 
+// This is a GLUT mouse callback that gets triggered when the user presses or releases a mouse button.
 static void mouse_func ( int button, int state, int x, int y )
+	// button is the mouse button that was pressed or released: left, middle or right
+	// state is either GLUT_DOWN or GLUT_UP
+	// x and y are the coordinates of the mouse at time button was pressed/released
 {
+	// set both old and current mouse coordinates to the current mouse position
 	omx = mx = x;
 	omx = my = y;
 
-	if(!mouse_down[0]){hmx=x; hmy=y;}
-	if(mouse_down[button]) mouse_release[button] = state == GLUT_UP;
-	if(mouse_down[button]) mouse_shiftclick[button] = glutGetModifiers()==GLUT_ACTIVE_SHIFT;
-	mouse_down[button] = state == GLUT_DOWN;
+	// If the left mouse was not held down, but the left mouse button is now pressed,
+	// then store the current position of the mouse as the initial drag point
+	if(!mouse_down[0])
+	{
+		// Store the current mouse position as the starting point of a drag
+		hmx=x; hmy=y;
+
+		// Find the closest particle to the current mouse position within a certain distance
+		float min_dist = 1.0f;
+		for (Particle* p : pVector)
+		{
+			float dist = std::sqrt(std::pow(p->m_Position[0] - hmx, 2) + std::pow(p->m_Position[1] - hmy, 2));
+			if (dist < min_dist)
+			{
+				min_dist = dist; // update the minimum distance
+				selected_particle = p; // store the selected particle
+			}
+		}
+	}
+
+	// If the left mouse button was previously pressed and if it is now released, update that it was released
+	if(mouse_down[button])
+	{
+		mouse_release[button] = (state == GLUT_UP);
+		selected_particle = nullptr; // update the selected_particle, empty it!
+	}
+
+	// If the button was previously pressed and if it is now released, update that it was released
+	if(mouse_down[button]) mouse_release[button] = (state == GLUT_UP);
+
+	// If the button was previously pressed and if Shift was held during the release
+	// then update that it was released with shift (useful for shift+click actions)
+	if(mouse_down[button]) mouse_shiftclick[button] = (glutGetModifiers()==GLUT_ACTIVE_SHIFT);
+
+	// Update the current state of the button: true if pressed, false if released
+	mouse_down[button] = (state == GLUT_DOWN);
 }
 
+// This is a GLUT motion callback that gets triggered when the user moves the mouse
+// while holding down a mouse button. The x and y coordinates are the current	
+// coordinates of the mouse.
 static void motion_func ( int x, int y )
 {
 	mx = x;
 	my = y;
+
+	// If there is a selected particle, update the spring force accordingly
+	if (selected_particle)
+	{
+		const double rest_length = 0.2; // rest length of the spring
+		const Vec2f mouse_position(mx, my);
+
+		// Create a particle for the mouse
+		pVector.push_back(new Particle(mouse_position));
+		// Create a spring force between the selected particle and the mouse
+		fVector.push_back(new SpringForce(selected_particle, mouse, rest_length, 1.0, 1.0));
+
+		// TODO: remove gravity force from the mouse particle
+		// TODO: remove the selected particle, does that imply that all forces corresponding to it also are deleted?
+		// TODO: remove mouse particle from the pVector 
+	}
 }
 
 static void reshape_func ( int width, int height )
