@@ -369,6 +369,49 @@ static void idle_func ( void )
         clear_force_accumulators();
         //2. apply forces to particle accumulators
         apply_force_accumulators();
+
+        //TODO: constraints
+        // - create state vector q of size 2n (contains only the positions for each particle)
+        // - get mass matrix (M), and its inverse (W)
+
+        // for the mass matrix, populate the diagonal with the masses of the particles (2 cells per particle as we're in 2D)
+        // the inverse is just 1 divided by the corresponding mass for each cell
+
+        // -create global force vector Q of size 2n (contains only the force for each particle)
+
+        // C is a vector consisting of the returned values of the constraints
+        // the constraints here are the implicit functions describing the constraint (like a circle equation, or a rod)
+
+        // C', for a single constraint, is the dot product of the jacobian and the velocities of the particles involved
+
+        // -calculate the jacobian J (i don't know how to approach this part)
+        // -calculate the jacobian derivative J'
+
+        // assemble JWJ^t
+        // rather then assembling it directly
+
+        // A = JWJ^t
+        // X = lambda
+        // b = -J'q' - JWQ (-k_s C - k_d C')
+        // solve using linear solver, this is going to populate lambda
+
+        // Q_hat = J^t * lambda what we're trying to solve?
+        // add Q_hat to affected force acumulators
+
+        // J^t X (lambda)
+
+        // eventually we must solve JWJ^t lambda = -J'q' - JWQ (-k_s C - k_d C') to find lambda, the lagrange multipliers
+
+        // what are C, C', J and J' supposed to look like?
+
+        // we can now represent q'' (aka the acceleration of each particle) as q'' = WQ
+
+        // TODO: create a constraint function that takes in vector q (size 2n) and returns a vector of size m (# constraints)
+
+        // our goal is to compute constraint vector Q_hat, that when added to Q guarantees that C''=0
+        
+        // Q_hat = J^t * lambda what we're trying to solve?
+
         //3. call solver 
         explicit_euler_solve(dt);
         //simulation_step( pVector, dt ); //TODO: call your solver of choice here
