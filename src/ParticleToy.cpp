@@ -39,6 +39,9 @@ static Matrix J(0, 0);      //jacobian
 static Matrix Jt(0, 0);     //jacobian transpose
 static Matrix J_prim(0, 0); //jacobian'
 
+static Particle* selected_particle = nullptr; // Pointer to the selected particle
+static Particle mouseParticle(Vec2f(0.0, 0.0)); // Particle for the mouse, gets updated each time the mouse button is clicked
+
 // static Particle *pList;
 static std::vector<Particle*> pVector; // Vector of particles
 static std::vector<Force*> fVector; // Vector of forces
@@ -481,16 +484,71 @@ static void mouse_func ( int button, int state, int x, int y )
 	omx = mx = x;
 	omx = my = y;
 
-	if(!mouse_down[0]){hmx=x; hmy=y;}
-	if(mouse_down[button]) mouse_release[button] = state == GLUT_UP;
-	if(mouse_down[button]) mouse_shiftclick[button] = glutGetModifiers()==GLUT_ACTIVE_SHIFT;
-	mouse_down[button] = state == GLUT_DOWN;
+	static int indexSpringForce;
+
+	// If the left mouse was not held down, but the left mouse button is now pressed,
+	// then store the current position of the mouse as the initial drag point
+	if(!mouse_down[0])
+	{
+		// Store the current mouse position as the starting point of a drag
+		hmx=x; hmy=y;
+
+		// Find the closest particle to the current mouse position within a certain distance
+		float min_dist = 1.0f;
+		for (Particle* p : pVector)
+		{
+			float dist = std::sqrt(std::pow(p->m_Position[0] - hmx, 2) + std::pow(p->m_Position[1] - hmy, 2));
+			if (dist < min_dist)
+			{
+				min_dist = dist; // update the minimum distance
+				selected_particle = p; // store the selected particle
+			}
+		}
+		if(selected_particle)
+		{
+			const double rest_length = 0.2; // rest length of the spring
+			mouseParticle.m_Position = Vec2f(hmx, hmy);
+
+			// Create a spring force between the selected particle and the mouse
+			static auto mouseSpringForce = new SpringForce(selected_particle, mouseParticle, rest_length, 1.0, 1.0)
+			fVector.push_back(mouseSpringForce);
+			indexSpringForce = fVector.size() - 1;
+		}
+	}
+
+	// If the left mouse button was previously pressed and if it is now released, update that it was released
+	if(mouse_down[button])
+	{
+		mouse_release[button] = (state == GLUT_UP);
+		selected_particle = nullptr; // update the selected_particle, empty it!
+	}
+
+	// If the button was previously pressed and if it is now released, update that it was released
+	if(mouse_down[button])
+	{ 
+		mouse_release[button] = (state == GLUT_UP);
+		fVector.erase(fVector.begin() + indexSpringForce); // remove the SpringForce from the vector
+	}
+
+	// If the button was previously pressed and if Shift was held during the release
+	// then update that it was released with shift (useful for shift+click actions)
+	if(mouse_down[button]) mouse_shiftclick[button] = (glutGetModifiers()==GLUT_ACTIVE_SHIFT);
+
+	// Update the current state of the button: true if pressed, false if released
+	mouse_down[button] = (state == GLUT_DOWN);
 }
 
 static void motion_func ( int x, int y )
 {
 	mx = x;
 	my = y;
+
+	// If there is a selected particle, update the spring force accordingly
+	if (selected_particle)
+	{
+		// only update the position of the mous particle
+		mouseParticle.m_Position = Vec2f(mx, my);
+	}
 }
 
 static void reshape_func ( int width, int height )
