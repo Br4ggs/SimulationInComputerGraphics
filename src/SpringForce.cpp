@@ -1,15 +1,19 @@
 #include "SpringForce.h"
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
 #include <GL/glut.h>
+#endif
 
 SpringForce::SpringForce(Particle *p1, Particle * p2, double rest_length, double ks, double kd) :
-  m_p1(p1), m_p2(p2), m_rest_length(rest_length), m_ks(ks), m_kd(kd) {}
+  m_p1(p1), m_p2(p2), m_dist(rest_length), m_ks(ks), m_kd(kd) {}
 
 void SpringForce::apply_force()
 {
   Vec2f l = m_p1->m_Position - m_p2->m_Position;
   Vec2f l_deriv = m_p1->m_Velocity - m_p2->m_Velocity;
   float magnitude_l = std::sqrt(l[0] * l[0] + l[1] * l[1]);
-  m_p1->m_Force += -(m_ks * (magnitude_l - m_rest_length) + m_kd * ((l_deriv * l) / magnitude_l)) * (l / magnitude_l);
+  m_p1->m_Force += -(m_ks * (magnitude_l - m_dist) + m_kd * ((l_deriv * l) / magnitude_l)) * (l / magnitude_l);
   m_p2->m_Force += - (m_p1->m_Force);
 }
 
