@@ -36,9 +36,6 @@ float RodConstraint::C_prim()
 
 void RodConstraint::jacob(Matrix* J)
 {
-    //encode these with a particle
-    //get p1 index
-    //get p2 index
     Vec2f x_delt = m_p1->m_Position - m_p2->m_Position;
     float mag = sqrt(pow(x_delt[0], 2) + pow(x_delt[1], 2));
 
@@ -48,11 +45,16 @@ void RodConstraint::jacob(Matrix* J)
     float p2x = -1 * p1x;
     float p2y = -1 * p1y;
 
-    (*J)[2 * m_p1->index][index] = p1x;
-    (*J)[(2 * m_p1->index) + 1][index] = p1y;
+    // (*J)[2 * m_p1->index][index] = p1x;
+    // (*J)[(2 * m_p1->index) + 1][index] = p1y;
+    (*J)[index][2 * m_p1->index] = p1x;
+    (*J)[index][2 * m_p1->index + 1] = p1y;
 
-    (*J)[2 * m_p2->index][index] = p2x;
-    (*J)[(2 * m_p2->index) + 1][index] = p2y;
+    // (*J)[2 * m_p2->index][index] = p2x;
+    // (*J)[(2 * m_p2->index) + 1][index] = p2y;
+
+    (*J)[index][2 * m_p2->index] = p2x;
+    (*J)[index][2 * m_p2->index + 1] = p2y;
 }
 
 void RodConstraint::jacob_prim(Matrix* J_prim)
@@ -67,9 +69,9 @@ void RodConstraint::jacob_prim(Matrix* J_prim)
     float p2x = -1 * p1x;
     float p2y = -1 * p1y;
 
-    (*J_prim)[2 * m_p1->index][index] = p1x;
-    (*J_prim)[(2 * m_p1->index) + 1][index] = p1y;
+    (*J_prim)[index][2 * m_p1->index] = p1x;
+    (*J_prim)[index][2 * m_p1->index + 1] = p1y;
 
-    (*J_prim)[2 * m_p2->index][index] = p2x;
-    (*J_prim)[(2 * m_p2->index) + 1][index] = p2y;
+    (*J_prim)[index][2 * m_p2->index] = p2x;
+    (*J_prim)[index][2 * m_p2->index + 1] = p2y;
 }

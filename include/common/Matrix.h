@@ -12,6 +12,11 @@ public:
 	std::vector<float>& operator[](const int index);				//for setting values
 	const std::vector<float>& operator[](const int index) const;	//for getting values
 
+    Matrix operator*(const Matrix& mat) const;
+    std::vector<float> operator*(const std::vector<float>& vec) const; //vector is treated as row vector
+
+    Matrix transpose() const;
+
 private:
     unsigned int rows;
     unsigned int columns;

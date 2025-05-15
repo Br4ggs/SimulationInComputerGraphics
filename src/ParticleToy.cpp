@@ -178,8 +178,8 @@ static void calculate_jacobians()
     {
         for (int j = 0; j < cVector.size(); j++)
         {
-            J[i][j] = 0;
-            Jt[j][i] = 0;
+            J[j][i] = 0;
+            Jt[i][j] = 0;
         }
     }
 
@@ -188,22 +188,15 @@ static void calculate_jacobians()
         cVector[i]->jacob(&J);
     }
 
-    //populate Jt
-    for (int i = 0; i < 2 * pVector.size(); i++)
-    {
-        for (int j = 0; j < cVector.size(); j++)
-        {
-            Jt[j][i] = J[i][j]; //shitty transpose method
-        }
-    }
+    Jt = J.transpose();
 }
 
 static void calculate_jacobian_prim()
 {
     //reset the Jacobian derivative back to 0
-    for (int i = 0; i < 2 * pVector.size(); i++)
+    for (int i = 0; i < cVector.size(); i++)
     {
-        for (int j = 0; j < cVector.size(); j++)
+        for (int j = 0; j < 2 * pVector.size(); j++)
         {
             J_prim[i][j] = 0;
         }
@@ -302,13 +295,13 @@ static void init_system(void)
     cVector.push_back(delete_this_dummy_rod); //jank
     
     //create J
-    J = Matrix(2 * pVector.size(), cVector.size());
-
+    J = Matrix(cVector.size(), 2 * pVector.size());
+    
     //create Jt
-    Jt = Matrix(cVector.size(), 2 * pVector.size());
-
+    Jt = Matrix(2 * pVector.size(), cVector.size());
+    
     //create J_prim
-    J_prim = Matrix(2 * pVector.size(), cVector.size());
+    J_prim = Matrix(cVector.size(), 2 * pVector.size());
 }
 
 /*
@@ -527,30 +520,29 @@ static void idle_func ( void )
         // Calculate the jacobian derivative J'
         calculate_jacobian_prim();
 
-        // assemble JWJ^t
-        // rather then assembling it directly
-
         // A = JWJ^t
+        Matrix A = J * W * Jt;
+
+        //-matrix by vector multiplication
+        //maybe create a vector class that doesnt suck?
+        //std::vector<float> b_term1 = J_prim * q_prim; //J'q'
+
+        std::vector<float> b_term2; //JWQ
+
+        std::vector<float> b_term3; //k_s C
+        std::vector<float> b_term4; //k_d C'
+        for (int i = 0; i < C.size(); i++)
+        {
+            b_term3.push_back(10 * C[i]);
+            b_term4.push_back(0.1 * C_prim[i]);
+        }
+
         // X = lambda
-        // b = -J'q' - JWQ (-k_s C - k_d C')
+        // b = -J'q' - JWQ - k_s C - k_d C'
         // solve using linear solver, this is going to populate lambda
 
         // Q_hat = J^t * lambda what we're trying to solve?
         // add Q_hat to affected force acumulators
-
-        // J^t X (lambda)
-
-        // eventually we must solve JWJ^t lambda = -J'q' - JWQ (-k_s C - k_d C') to find lambda, the lagrange multipliers
-
-        // what are C, C', J and J' supposed to look like?
-
-        // we can now represent q'' (aka the acceleration of each particle) as q'' = WQ
-
-        // TODO: create a constraint function that takes in vector q (size 2n) and returns a vector of size m (# constraints)
-
-        // our goal is to compute constraint vector Q_hat, that when added to Q guarantees that C''=0
-        
-        // Q_hat = J^t * lambda what we're trying to solve?
 
         //3. call solver 
         explicit_euler_solve(dt);
