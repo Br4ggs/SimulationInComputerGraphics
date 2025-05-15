@@ -1,8 +1,9 @@
 #pragma once
 
+#include "linearSolver.h"
 #include <vector>
 
-class Matrix
+class Matrix : public implicitMatrix
 {
 public:
     Matrix(unsigned int rows, unsigned int columns);
@@ -15,7 +16,10 @@ public:
     Matrix operator*(const Matrix& mat) const;
     std::vector<float> operator*(const std::vector<float>& vec) const; //vector is treated as row vector
 
+    void matVecMult(double x[], double r[]) override;
     Matrix transpose() const;
+
+    unsigned int nrColumns() const;
 
 private:
     unsigned int rows;

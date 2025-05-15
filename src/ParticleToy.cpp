@@ -10,6 +10,7 @@
 #include "CircularWireConstraint.h"
 #include "Matrix.h"
 #include "imageio.h"
+#include "linearSolver.h"
 
 #include <vector>
 #include <stdlib.h>
@@ -160,6 +161,8 @@ static std::vector<float> get_C()
         //populate C with constraint functions
         C.push_back(cVector[i]->C());
     }
+
+    return C;
 }
 
 static std::vector<float> get_C_prim()
@@ -169,6 +172,8 @@ static std::vector<float> get_C_prim()
     {
         C_prim.push_back(cVector[i]->C_prim());
     }
+
+    return C_prim;
 }
 
 static void calculate_jacobians()
@@ -525,12 +530,18 @@ static void idle_func ( void )
 
         //-matrix by vector multiplication
         //maybe create a vector class that doesnt suck?
-        //std::vector<float> b_term1 = J_prim * q_prim; //J'q'
 
-        std::vector<float> b_term2; //JWQ
+         //J'q'
+        std::vector<float> b_term1 = J_prim * q_prim;
 
-        std::vector<float> b_term3; //k_s C
-        std::vector<float> b_term4; //k_d C'
+        //JWQ
+        std::vector<float> b_term2 = J * W * Q;
+
+        //k_s C
+        std::vector<float> b_term3;
+        
+        //k_d C'
+        std::vector<float> b_term4;
         for (int i = 0; i < C.size(); i++)
         {
             b_term3.push_back(10 * C[i]);
@@ -538,11 +549,38 @@ static void idle_func ( void )
         }
 
         // X = lambda
+        double x[C.size()] = {0};
+
         // b = -J'q' - JWQ - k_s C - k_d C'
+        std::vector<double> b;
+        for (int i = 0; i < C.size(); i++)
+        {
+            b.push_back(0 - b_term1[i] - b_term2[i] - b_term3[i] - b_term4[i]);
+        }
+
         // solve using linear solver, this is going to populate lambda
+        int steps = 30;
+        ConjGrad(C.size(), &A, x, &b[0], 0.00000001, &steps);
 
         // Q_hat = J^t * lambda what we're trying to solve?
+        std::vector<float> lambda;
+        for (int i = 0; i < C.size(); i++)
+        {
+            lambda.push_back(x[i]);
+        }
+
+        
+        std::vector<float> Q_hat = Jt * lambda;
+        
+        printf("%i\n", Q_hat.size());
+        fflush(stdout);
+
         // add Q_hat to affected force acumulators
+        for(int i = 0; i < pVector.size(); i++)
+        {
+            Vec2f f(Q_hat[2 * i], Q_hat[2 * i + 1]);
+            pVector[i]->m_Force += f;
+        }
 
         //3. call solver 
         explicit_euler_solve(dt);

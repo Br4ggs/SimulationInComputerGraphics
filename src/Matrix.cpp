@@ -1,5 +1,6 @@
 #include "Matrix.h"
 
+#include <string>
 #include <stdexcept>
 
 Matrix::Matrix(unsigned int rows, unsigned int columns)
@@ -50,7 +51,7 @@ Matrix Matrix::operator*(const Matrix& mat) const
 std::vector<float> Matrix::operator*(const std::vector<float>& vec) const
 {
     if (this->columns != vec.size())
-        throw std::invalid_argument("columns of matrix does not match size of vector");
+        throw std::invalid_argument("Columns of matrix (" + std::to_string(this->columns) + ") do not match size of vector (" + std::to_string(vec.size()) + ")");
     
     std::vector<float> result;
 
@@ -70,6 +71,23 @@ std::vector<float> Matrix::operator*(const std::vector<float>& vec) const
     return result;
 }
 
+void Matrix::matVecMult(double x[], double r[])
+{
+    //todo
+    for (int i = 0; i < this->rows; i++)
+    {
+        float val = 0;
+        for (int j = 0; j < this->columns; j++)
+        {
+            float a = (*this)[i][j];
+            float b = x[j];
+            val += a * b;
+        }
+
+        r[i] = val;
+    }
+}
+
 Matrix Matrix::transpose() const
 {
 	Matrix result(this->columns, this->rows);
@@ -83,4 +101,9 @@ Matrix Matrix::transpose() const
 	}
 
 	return result;
+}
+
+unsigned int Matrix::nrColumns() const
+{
+    return columns;
 }
