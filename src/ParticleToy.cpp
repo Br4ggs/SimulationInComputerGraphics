@@ -44,7 +44,7 @@ static Matrix Jt(0, 0);     //jacobian transpose
 static Matrix J_prim(0, 0); //jacobian'
 
 static Particle* selected_particle = nullptr; // Pointer to the selected particle
-static Particle mouseParticle(Vec2f(0.0, 0.0)); // Particle for the mouse, gets updated each time the mouse button is clicked
+static Particle mouseParticle(Vec2f(0.0, 0.0), -1); // Particle for the mouse, gets updated each time the mouse button is clicked
 
 // static Particle *pList;
 static std::vector<Particle*> pVector; // Vector of particles
@@ -532,13 +532,8 @@ static void mouse_func ( int button, int state, int x, int y )
 
 		if(selected_particle)
 		{
-			const double rest_length = 0.2; // rest length of the spring
+			constexpr double rest_length = 0.01; // rest length of the spring
 			mouseParticle.m_Position = mousco;
-
-
-			std::cout<< "mouse_func" << mouseParticle.m_Position << std::endl;
-
-			// Create a spring force between the selected particle and the mouse
 			mouseSpringForce = new SpringForce(selected_particle, &mouseParticle, rest_length, 1.0, 1.0);
 			// NOTE: memory leak when creating spring forces each time
 			fVector.push_back(mouseSpringForce);
@@ -569,9 +564,7 @@ static void motion_func ( int x, int y )
 	// If there is a selected particle, update the spring force accordingly
 	if (selected_particle)
 	{
-		// only update the position of the mous particle
 		mouseParticle.m_Position = normalize_mouse_coordinates(mx, my);
-		std::cout<< "motion_func" << mouseParticle.m_Position[0] << "," << mouseParticle.m_Position[1] << std::endl;
 	}
 }
 
