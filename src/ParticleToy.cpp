@@ -32,8 +32,9 @@ static int frame_number;
 static Matrix M(0, 0); //mass matrix
 static Matrix W(0, 0); //mass matrix inverse
 
-static Matrix J(0, 0);  //jacobian
-static Matrix Jt(0, 0); //jacobian transpose
+static Matrix J(0, 0);      //jacobian
+static Matrix Jt(0, 0);     //jacobian transpose
+static Matrix J_prim(0, 0); //jacobian'
 
 // static Particle *pList;
 static std::vector<Particle*> pVector; // Vector of particles
@@ -172,9 +173,45 @@ static std::vector<float> get_C_prim()
 
 static void calculate_jacobians()
 {
+    //reset the Jacobians back to 0
+    for (int i = 0; i < 2 * pVector.size(); i++)
+    {
+        for (int j = 0; j < cVector.size(); j++)
+        {
+            J[i][j] = 0;
+            Jt[j][i] = 0;
+        }
+    }
+
     for (int i = 0; i < cVector.size(); i++)
     {
         cVector[i]->jacob(&J);
+    }
+
+    //populate Jt
+    for (int i = 0; i < 2 * pVector.size(); i++)
+    {
+        for (int j = 0; j < cVector.size(); j++)
+        {
+            Jt[j][i] = J[i][j]; //shitty transpose method
+        }
+    }
+}
+
+static void calculate_jacobian_prim()
+{
+    //reset the Jacobian derivative back to 0
+    for (int i = 0; i < 2 * pVector.size(); i++)
+    {
+        for (int j = 0; j < cVector.size(); j++)
+        {
+            J_prim[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < cVector.size(); i++)
+    {
+        cVector[i]->jacob_prim(&J_prim);
     }
 }
 
@@ -189,7 +226,6 @@ static int hmx, hmy;
 //static SpringForce * delete_this_dummy_spring = NULL;
 static RodConstraint * delete_this_dummy_rod = NULL;
 static CircularWireConstraint * delete_this_dummy_wire = NULL;
-
 
 /*
 ----------------------------------------------------------------------
@@ -243,8 +279,6 @@ static void init_system(void)
     
     //create M
     M = Matrix(2 * pVector.size(), 2 * pVector.size());
-
-    //populate the diagonal of M
     for (int i = 0; i < pVector.size(); i++)
     {
         M[i * 2][i * 2] = pVector[i]->f_Mass;
@@ -253,26 +287,28 @@ static void init_system(void)
 
     //create W
     W = Matrix(2 * pVector.size(), 2 * pVector.size());
-
     for (int i = 0; i < pVector.size(); i++)
     {
         W[i * 2][i * 2] = 1 / pVector[i]->f_Mass;
         W[(i * 2) + 1][(i * 2) + 1] = 1 / pVector[i]->f_Mass;
     }
-
-    //create J
-    J = Matrix(2 * pVector.size(), cVector.size());
-
-    //create Jt
-    J = Matrix(cVector.size(), 2 * pVector.size());
 	
 	// You shoud replace these with a vector generalized forces and one of
 	// constraints...
 	//delete_this_dummy_spring = new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0);
-	delete_this_dummy_rod = new RodConstraint(pVector[1], pVector[2], dist);
+	delete_this_dummy_rod = new RodConstraint(pVector[1], pVector[2], dist, 0);
 	delete_this_dummy_wire = new CircularWireConstraint(pVector[0], center, dist);
-
+    
     cVector.push_back(delete_this_dummy_rod); //jank
+    
+    //create J
+    J = Matrix(2 * pVector.size(), cVector.size());
+
+    //create Jt
+    Jt = Matrix(cVector.size(), 2 * pVector.size());
+
+    //create J_prim
+    J_prim = Matrix(2 * pVector.size(), cVector.size());
 }
 
 /*
@@ -485,10 +521,11 @@ static void idle_func ( void )
         // C', for a single constraint, is the dot product of the jacobian and the velocities of the particles involved
         std::vector<float> C_prim = get_C_prim();
 
-        // -calculate the jacobian J (i don't know how to approach this part)
+        // Calculate the jacobian J and its transpose Jt
         calculate_jacobians();
 
-        // -calculate the jacobian derivative J'
+        // Calculate the jacobian derivative J'
+        calculate_jacobian_prim();
 
         // assemble JWJ^t
         // rather then assembling it directly
