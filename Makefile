@@ -9,7 +9,8 @@ ifeq ($(OS),Windows_NT)
 else
 	RM = rm -vf
 	INCLUDE = $(INC_LINUX)
-	CXX_EXTRA_FLAGS = -lglut -lGLU -lGL -lpng
+	#CXX_EXTRA_FLAGS = -lglut -lGLU -lGL -lpng
+	CXX_EXTRA_FLAGS = -framework GLUT -framework OpenGL -lpng
 endif
 
 CXXFLAGS = -g -O2 -Wall -Wno-sign-compare -I$(INCLUDE) -I$(INC_COMMON) -DHAVE_CONFIG_H 

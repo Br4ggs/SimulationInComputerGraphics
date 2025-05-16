@@ -17,7 +17,11 @@
 #include <vector>
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef __APPLE__
+#include <GLUT/glut.h>
+#else
 #include <GL/glut.h>
+#endif
 
 /* macros */
 
@@ -38,6 +42,9 @@ static Matrix W(0, 0); //mass matrix inverse
 static Matrix J(0, 0);      //jacobian
 static Matrix Jt(0, 0);     //jacobian transpose
 static Matrix J_prim(0, 0); //jacobian'
+
+static Particle* selected_particle = nullptr; // Pointer to the selected particle
+static Particle mouseParticle(Vec2f(0.0, 0.0), -1); // Particle for the mouse, gets updated each time the mouse button is clicked
 
 // static Particle *pList;
 static std::vector<Particle*> pVector; // Vector of particles
@@ -476,21 +483,89 @@ static void key_func ( unsigned char key, int x, int y )
 	}
 }
 
+Vec2f normalize_mouse_coordinates(int x, int y)
+{
+	float edges = 1.0;
+    auto nx = std::min(std::max(x, 0), 512);
+    auto ny = std::min(std::max(y, 0), 512);
+    
+    float normalized_x = (float)nx / 512.0f;
+    float normalized_y = (float)ny / 512.0f;
+    
+    float mapped_x = -edges + normalized_x * (2 * edges);
+    float mapped_y = edges - normalized_y * (2 * edges);
+    
+    return Vec2f(mapped_x, mapped_y);
+}
+
+static SpringForce* mouseSpringForce;
+
+// This is a GLUT mouse callback that gets triggered when the user presses or releases a mouse button.
 static void mouse_func ( int button, int state, int x, int y )
 {
 	omx = mx = x;
 	omx = my = y;
 
-	if(!mouse_down[0]){hmx=x; hmy=y;}
-	if(mouse_down[button]) mouse_release[button] = state == GLUT_UP;
-	if(mouse_down[button]) mouse_shiftclick[button] = glutGetModifiers()==GLUT_ACTIVE_SHIFT;
-	mouse_down[button] = state == GLUT_DOWN;
+	static int indexSpringForce;
+
+	// If the left mouse was not held down, but the left mouse button is now pressed,
+	// then store the current position of the mouse as the initial drag point
+	if(!mouse_down[0])
+	{
+		// Store the current mouse position as the starting point of a drag
+		hmx=x; hmy=y;
+		Vec2f mousco = normalize_mouse_coordinates(x, y);
+
+		// Find the closest particle to the current mouse position within a certain distance
+		float min_dist = 102401240124.0f;
+		for (Particle* p : pVector)
+		{
+			float dist = norm2(p->m_Position - Vec2f(mousco));
+			if (dist < min_dist)
+			{
+
+				min_dist = dist; // update the minimum distance
+				selected_particle = p; // store the selected particle
+			}
+
+		}
+
+		if(selected_particle)
+		{
+			constexpr double rest_length = 0.01; // rest length of the spring
+			mouseParticle.m_Position = mousco;
+			mouseSpringForce = new SpringForce(selected_particle, &mouseParticle, rest_length, 1.0, 1.0);
+			// NOTE: memory leak when creating spring forces each time
+			fVector.push_back(mouseSpringForce);
+			indexSpringForce = fVector.size() - 1;
+		}
+	}
+
+	// If the button was previously pressed and if it is now released, update that it was released
+	if(mouse_down[button])
+	{ 
+		mouse_release[button] = (state == GLUT_UP);
+		fVector.erase(fVector.begin() + indexSpringForce); // remove the SpringForce from the vector
+	}
+
+	// If the button was previously pressed and if Shift was held during the release
+	// then update that it was released with shift (useful for shift+click actions)
+	if(mouse_down[button]) mouse_shiftclick[button] = (glutGetModifiers()==GLUT_ACTIVE_SHIFT);
+
+	// Update the current state of the button: true if pressed, false if released
+	mouse_down[button] = (state == GLUT_DOWN);
 }
 
 static void motion_func ( int x, int y )
 {
 	mx = x;
 	my = y;
+
+	// If there is a selected particle, update the spring force accordingly
+	if (selected_particle)
+	{
+		mouseParticle.m_Position = normalize_mouse_coordinates(mx, my);
+	}
 }
 
 static void reshape_func ( int width, int height )
@@ -698,4 +773,3 @@ int main ( int argc, char ** argv )
 
 	exit ( 0 );
 }
-
