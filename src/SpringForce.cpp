@@ -6,11 +6,16 @@ SpringForce::SpringForce(Particle *p1, Particle * p2, double dist, double ks, do
 
 void SpringForce::apply_force()
 {
-  Vec2f l = m_p1->m_Position - m_p2->m_Position;
-  Vec2f l_deriv = m_p1->m_Velocity - m_p2->m_Velocity;
-  float magnitude_l = std::sqrt(l[0] * l[0] + l[1] * l[1]);
-  m_p1->m_Force += -(m_ks * (magnitude_l - m_dist) + m_kd * ((l_deriv * l) / magnitude_l)) * (l / magnitude_l);
-  m_p2->m_Force += - (m_p1->m_Force);
+    Vec2f l = m_p1->m_Position - m_p2->m_Position;
+    Vec2f l_deriv = m_p1->m_Velocity - m_p2->m_Velocity;
+
+    float magnitude_l = std::sqrt(l[0] * l[0] + l[1] * l[1]);
+    float dot = (l_deriv[0] * l[0]) + (l_deriv[1] * l[1]);
+
+    Vec2f force = -((m_ks * (magnitude_l - m_dist)) + (m_kd * (dot / magnitude_l))) * (l / magnitude_l);
+
+    m_p1->m_Force += force;
+    m_p2->m_Force += -force;
 }
 
 void SpringForce::draw()

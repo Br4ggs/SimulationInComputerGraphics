@@ -8,7 +8,9 @@
 #include "SpringForce.h"
 #include "RodConstraint.h"
 #include "CircularWireConstraint.h"
+#include "Matrix.h"
 #include "imageio.h"
+#include "linearSolver.h"
 
 #include <vector>
 #include <stdlib.h>
@@ -28,9 +30,17 @@ static int dsim;
 static int dump_frames;
 static int frame_number;
 
+static Matrix M(0, 0); //mass matrix
+static Matrix W(0, 0); //mass matrix inverse
+
+static Matrix J(0, 0);      //jacobian
+static Matrix Jt(0, 0);     //jacobian transpose
+static Matrix J_prim(0, 0); //jacobian'
+
 // static Particle *pList;
 static std::vector<Particle*> pVector; // Vector of particles
 static std::vector<Force*> fVector; // Vector of forces
+static std::vector<Constraint*> cVector; // Vector of constraints
 
 //TODO: constraints
 // Vector of constraints
@@ -105,6 +115,113 @@ static void apply_force_accumulators()
     }
 }
 
+static void apply_drag()
+{
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        Vec2f v = pVector[i]->m_Velocity;
+        pVector[i]->m_Velocity -= 0.015 * v;
+    }
+}
+
+// Constraint helper functions
+
+static std::vector<float> get_q()
+{
+    std::vector<float> q;
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        q.push_back(pVector[i]->m_Position[0]); //x position
+		q.push_back(pVector[i]->m_Position[1]); //y position
+    }
+
+    return q;
+}
+
+static std::vector<float> get_q_prim()
+{
+    std::vector<float> q_prim;
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        q_prim.push_back(pVector[i]->m_Velocity[0]);
+        q_prim.push_back(pVector[i]->m_Velocity[1]);
+    }
+
+    return q_prim;
+}
+
+static std::vector<float> get_Q()
+{
+    std::vector<float> Q;
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        Q.push_back(pVector[i]->m_Force[0]);
+        Q.push_back(pVector[i]->m_Force[1]);
+    }
+
+    return Q;
+}
+
+static std::vector<float> get_C()
+{
+    std::vector<float> C;
+    for (int i = 0; i < cVector.size(); i++)
+    {
+        //populate C with constraint functions
+        C.push_back(cVector[i]->C());
+    }
+
+    return C;
+}
+
+static std::vector<float> get_C_prim()
+{
+    std::vector<float> C_prim;
+    for (int i = 0; i < cVector.size(); i++)
+    {
+        C_prim.push_back(cVector[i]->C_prim());
+    }
+
+    return C_prim;
+}
+
+static void calculate_jacobians()
+{
+    //reset the Jacobians back to 0
+    for (int i = 0; i < 2 * pVector.size(); i++)
+    {
+        for (int j = 0; j < cVector.size(); j++)
+        {
+            J[j][i] = 0;
+            Jt[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < cVector.size(); i++)
+    {
+        cVector[i]->jacob(&J);
+    }
+
+    Jt = J.transpose();
+}
+
+static void calculate_jacobian_prim()
+{
+    //reset the Jacobian derivative back to 0
+    for (int i = 0; i < cVector.size(); i++)
+    {
+        for (int j = 0; j < 2 * pVector.size(); j++)
+        {
+            J_prim[i][j] = 0;
+        }
+    }
+
+    for (int i = 0; i < cVector.size(); i++)
+    {
+        cVector[i]->jacob_prim(&J_prim);
+    }
+}
+
 static int win_id;
 static int win_x, win_y;
 static int mouse_down[3];
@@ -116,7 +233,6 @@ static int hmx, hmy;
 //static SpringForce * delete_this_dummy_spring = NULL;
 static RodConstraint * delete_this_dummy_rod = NULL;
 static CircularWireConstraint * delete_this_dummy_wire = NULL;
-
 
 /*
 ----------------------------------------------------------------------
@@ -151,10 +267,6 @@ static void clear_data ( void )
 	}
 }
 
-//TODO:
-//1. add gravity as a force class
-//2. add spring force as a force class
-
 static void init_system(void)
 {
 	const double dist = 0.2;
@@ -164,20 +276,47 @@ static void init_system(void)
 	// Create three particles, attach them to each other, then add a
 	// circular wire constraint to the first.
 
-	pVector.push_back(new Particle(center + offset));
-	pVector.push_back(new Particle(center + offset + offset));
-	pVector.push_back(new Particle(center + offset + offset + offset));
+	pVector.push_back(new Particle(center + offset, 0));
+	pVector.push_back(new Particle(center + offset + offset, 1));
+	pVector.push_back(new Particle(center + offset + offset + offset, 2));
 
 	// Forces
-	fVector.push_back(new GravityForce(pVector, Vec2f(0, -1)));
-    fVector.push_back(new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0));
+	fVector.push_back(new GravityForce(pVector, Vec2f(0, -0.05)));
+    fVector.push_back(new SpringForce(pVector[0], pVector[1], dist, 0.5, 0.1));
     
+    //create M
+    M = Matrix(2 * pVector.size(), 2 * pVector.size());
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        M[i * 2][i * 2] = pVector[i]->f_Mass;
+        M[(i * 2) + 1][(i * 2) + 1] = pVector[i]->f_Mass;
+    }
+
+    //create W
+    W = Matrix(2 * pVector.size(), 2 * pVector.size());
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        W[i * 2][i * 2] = 1 / pVector[i]->f_Mass;
+        W[(i * 2) + 1][(i * 2) + 1] = 1 / pVector[i]->f_Mass;
+    }
 	
 	// You shoud replace these with a vector generalized forces and one of
 	// constraints...
 	//delete_this_dummy_spring = new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0);
-	delete_this_dummy_rod = new RodConstraint(pVector[1], pVector[2], dist);
-	delete_this_dummy_wire = new CircularWireConstraint(pVector[0], center, dist);
+	delete_this_dummy_rod = new RodConstraint(pVector[1], pVector[2], dist, 0);
+	delete_this_dummy_wire = new CircularWireConstraint(pVector[0], center, dist, 1);
+    
+    cVector.push_back(delete_this_dummy_rod); //jank
+    cVector.push_back(delete_this_dummy_wire);
+    
+    //create J
+    J = Matrix(cVector.size(), 2 * pVector.size());
+    
+    //create Jt
+    Jt = Matrix(2 * pVector.size(), cVector.size());
+    
+    //create J_prim
+    J_prim = Matrix(cVector.size(), 2 * pVector.size());
 }
 
 /*
@@ -369,9 +508,95 @@ static void idle_func ( void )
         clear_force_accumulators();
         //2. apply forces to particle accumulators
         apply_force_accumulators();
+
+        //TODO: constraints
+        // - create state vector q of size 2n (contains only the positions for each particle)
+        std::vector<float> q = get_q();
+        std::vector<float> q_prim = get_q_prim();
+
+        // - get mass matrix (M), and its inverse (W)
+
+        // for the mass matrix, populate the diagonal with the masses of the particles (2 cells per particle as we're in 2D)
+        // the inverse is just 1 divided by the corresponding mass for each cell
+
+        // -create global force vector Q of size 2n (contains only the force for each particle)
+        std::vector<float> Q = get_Q();
+
+        // C is a vector consisting of the returned values of the constraints
+        // the constraints here are the implicit functions describing the constraint (like a circle equation, or a rod)
+        std::vector<float> C = get_C();
+
+        // C', for a single constraint, is the dot product of the jacobian and the velocities of the particles involved
+        std::vector<float> C_prim = get_C_prim();
+
+        // Calculate the jacobian J and its transpose Jt
+        calculate_jacobians();
+
+        // Calculate the jacobian derivative J'
+        calculate_jacobian_prim();
+
+        // A = JWJ^t
+        Matrix A = J * W * Jt;
+
+        //-matrix by vector multiplication
+        //maybe create a vector class that doesnt suck?
+
+         //J'q'
+        std::vector<float> b_term1 = J_prim * q_prim;
+
+        //JWQ
+        std::vector<float> b_term2 = J * W * Q;
+
+        //k_s C
+        std::vector<float> b_term3;
+        
+        //k_d C'
+        std::vector<float> b_term4;
+        for (int i = 0; i < C.size(); i++)
+        {
+            b_term3.push_back(0.5 * C[i]);
+            b_term4.push_back(0.1 * C_prim[i]);
+        }
+
+        // X = lambda
+        double x[C.size()] = {0};
+
+        // b = -J'q' - JWQ - k_s C - k_d C'
+        std::vector<double> b;
+        for (int i = 0; i < C.size(); i++)
+        {
+            b.push_back(0 - b_term1[i] - b_term2[i] - b_term3[i] - b_term4[i]);
+        }
+
+        // solve using linear solver, this is going to populate lambda
+        int steps = 100;
+        ConjGrad(C.size(), &A, x, &b[0], 0.00000001, &steps);
+
+        printf("%i\n", steps);
+        fflush(stdout);
+
+        // Q_hat = J^t * lambda what we're trying to solve?
+        std::vector<float> lambda;
+        for (int i = 0; i < C.size(); i++)
+        {
+            lambda.push_back(x[i]);
+        }
+        
+        std::vector<float> Q_hat = Jt * lambda;
+        
+
+        // add Q_hat to affected force acumulators
+        for (int i = 0; i < pVector.size(); i++)
+        {
+            Vec2f f(Q_hat[2 * i], Q_hat[2 * i + 1]);
+            pVector[i]->m_Force += f;
+        }
+
         //3. call solver 
         explicit_euler_solve(dt);
-        //simulation_step( pVector, dt ); //TODO: call your solver of choice here
+
+        //4. add some dragg
+        apply_drag();
     }
 	else
     {
@@ -442,7 +667,7 @@ int main ( int argc, char ** argv )
 	if ( argc == 1 ) {
 		N = 64;
 		//dt = 0.1f;
-        dt = 0.01f;
+        dt = 0.1f;
 		d = 5.f;
 		fprintf ( stderr, "Using defaults : N=%d dt=%g d=%g\n",
 			N, dt, d );

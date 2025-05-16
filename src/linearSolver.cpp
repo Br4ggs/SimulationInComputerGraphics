@@ -40,8 +40,8 @@ double vecSqrLen(int n, double v[])
 }
 
 double ConjGrad(int n, implicitMatrix *A, double x[], double b[], 
-		double epsilon,	// how low should we go?
-		int    *steps)
+		double epsilon,	// how low should we go? 1 * e^-8
+		int    *steps) //~30
 {
   int		i, iMax;
   double	alpha, beta, rSqrLen, rSqrLenOld, u;

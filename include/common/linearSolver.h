@@ -13,16 +13,17 @@
 // Matrix class the solver will accept
 class implicitMatrix
 {
- public:
-  virtual void matVecMult(double x[], double r[]) = 0;
+public:
+    virtual void matVecMult(double x[], double r[]) = 0;
 };
 
 // Matrix class the solver will accept
 class implicitMatrixWithTrans : public implicitMatrix
 {
- public:
-  virtual void matVecMult(double x[], double r[]) = 0;
-  virtual void matTransVecMult(double x[], double r[]) = 0;
+public:
+    virtual void matVecMult(double x[], double r[]) = 0;
+    virtual void matTransVecMult(double x[], double r[]) = 0;
+    //matxmat mult
 };
 
 

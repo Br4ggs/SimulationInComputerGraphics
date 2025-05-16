@@ -6,7 +6,7 @@ class Particle
 {
 public:
 
-	Particle(const Vec2f & ConstructPos);
+	Particle(const Vec2f & ConstructPos, unsigned int index);
 	virtual ~Particle(void);
 
 	void reset();
@@ -17,4 +17,5 @@ public:
 	Vec2f m_Velocity;
 	Vec2f m_Force;
 	float f_Mass;
+    unsigned int index;
 };
