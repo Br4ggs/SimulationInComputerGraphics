@@ -45,13 +45,8 @@ void RodConstraint::jacob(Matrix* J)
     float p2x = -1 * p1x;
     float p2y = -1 * p1y;
 
-    // (*J)[2 * m_p1->index][index] = p1x;
-    // (*J)[(2 * m_p1->index) + 1][index] = p1y;
     (*J)[index][2 * m_p1->index] = p1x;
     (*J)[index][2 * m_p1->index + 1] = p1y;
-
-    // (*J)[2 * m_p2->index][index] = p2x;
-    // (*J)[(2 * m_p2->index) + 1][index] = p2y;
 
     (*J)[index][2 * m_p2->index] = p2x;
     (*J)[index][2 * m_p2->index + 1] = p2y;

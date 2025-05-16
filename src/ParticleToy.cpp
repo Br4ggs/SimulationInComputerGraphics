@@ -115,6 +115,15 @@ static void apply_force_accumulators()
     }
 }
 
+static void apply_drag()
+{
+    for (int i = 0; i < pVector.size(); i++)
+    {
+        Vec2f v = pVector[i]->m_Velocity;
+        pVector[i]->m_Velocity -= 0.015 * v;
+    }
+}
+
 // Constraint helper functions
 
 static std::vector<float> get_q()
@@ -272,8 +281,8 @@ static void init_system(void)
 	pVector.push_back(new Particle(center + offset + offset + offset, 2));
 
 	// Forces
-	fVector.push_back(new GravityForce(pVector, Vec2f(0, -1)));
-    fVector.push_back(new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0));
+	fVector.push_back(new GravityForce(pVector, Vec2f(0, -0.05)));
+    fVector.push_back(new SpringForce(pVector[0], pVector[1], dist, 0.5, 0.1));
     
     //create M
     M = Matrix(2 * pVector.size(), 2 * pVector.size());
@@ -295,9 +304,10 @@ static void init_system(void)
 	// constraints...
 	//delete_this_dummy_spring = new SpringForce(pVector[0], pVector[1], dist, 1.0, 1.0);
 	delete_this_dummy_rod = new RodConstraint(pVector[1], pVector[2], dist, 0);
-	delete_this_dummy_wire = new CircularWireConstraint(pVector[0], center, dist);
+	delete_this_dummy_wire = new CircularWireConstraint(pVector[0], center, dist, 1);
     
     cVector.push_back(delete_this_dummy_rod); //jank
+    cVector.push_back(delete_this_dummy_wire);
     
     //create J
     J = Matrix(cVector.size(), 2 * pVector.size());
@@ -544,7 +554,7 @@ static void idle_func ( void )
         std::vector<float> b_term4;
         for (int i = 0; i < C.size(); i++)
         {
-            b_term3.push_back(10 * C[i]);
+            b_term3.push_back(0.5 * C[i]);
             b_term4.push_back(0.1 * C_prim[i]);
         }
 
@@ -559,8 +569,11 @@ static void idle_func ( void )
         }
 
         // solve using linear solver, this is going to populate lambda
-        int steps = 30;
+        int steps = 100;
         ConjGrad(C.size(), &A, x, &b[0], 0.00000001, &steps);
+
+        printf("%i\n", steps);
+        fflush(stdout);
 
         // Q_hat = J^t * lambda what we're trying to solve?
         std::vector<float> lambda;
@@ -568,15 +581,12 @@ static void idle_func ( void )
         {
             lambda.push_back(x[i]);
         }
-
         
         std::vector<float> Q_hat = Jt * lambda;
         
-        printf("%i\n", Q_hat.size());
-        fflush(stdout);
 
         // add Q_hat to affected force acumulators
-        for(int i = 0; i < pVector.size(); i++)
+        for (int i = 0; i < pVector.size(); i++)
         {
             Vec2f f(Q_hat[2 * i], Q_hat[2 * i + 1]);
             pVector[i]->m_Force += f;
@@ -584,7 +594,9 @@ static void idle_func ( void )
 
         //3. call solver 
         explicit_euler_solve(dt);
-        //simulation_step( pVector, dt ); //TODO: call your solver of choice here
+
+        //4. add some dragg
+        apply_drag();
     }
 	else
     {
@@ -655,7 +667,7 @@ int main ( int argc, char ** argv )
 	if ( argc == 1 ) {
 		N = 64;
 		//dt = 0.1f;
-        dt = 0.01f;
+        dt = 0.1f;
 		d = 5.f;
 		fprintf ( stderr, "Using defaults : N=%d dt=%g d=%g\n",
 			N, dt, d );
