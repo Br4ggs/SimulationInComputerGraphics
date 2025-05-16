@@ -3,7 +3,7 @@
 
 #define DAMP 0.98f
 
-void explicit_euler_solve(float dt)
+void explicit_euler_solver(float dt)
 {
     //TODO: solve system
     int dimensions = get_dim();
